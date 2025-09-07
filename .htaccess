@@ -1,0 +1,969 @@
+# ============================================================================
+# SERVER SECURITY AND HEADERS
+# ============================================================================
+
+ServerSignature Off
+ServerTokens Prod
+Options -Indexes
+
+<IfModule mod_headers.c>
+    Header unset Server
+    Header always unset Server
+    Header unset X-Powered-By
+    Header always unset X-Powered-By
+    Header unset ETag
+    Header always unset ETag
+    Header always set X-Content-Type-Options nosniff
+    Header always set X-Frame-Options SAMEORIGIN
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set X-Download-Options "noopen"
+    Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains"
+    Header set Feature-Policy "geolocation 'self'; vibrate 'none'"
+    Header always set Content-Security-Policy "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com; img-src 'self' data: https:; font-src 'self' https:;"
+</IfModule>
+
+<IfModule mod_php.c>
+    php_flag expose_php Off
+</IfModule>
+
+<IfModule mod_security.c>
+    SecServerSignature " "
+</IfModule>
+
+# Prevent access to .htaccess file itself
+<Files .htaccess>
+    Order allow,deny
+    Deny from all
+</Files>
+
+# Prevent access to sensitive files
+<FilesMatch "\.(htaccess|htpasswd|ini|log|sh|inc|bak|sql|del|DS_STORE|env)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+
+# ============================================================================
+# FILE ACCESS RESTRICTIONS
+# ============================================================================
+
+<Files .htaccess>
+    Order allow,deny
+    Deny from all
+</Files>
+
+<FilesMatch "\.(htaccess|htpasswd|ini|log|sh|inc|bak|sql|conf|cfg|tmp|swp|save|orig|~|#|env|config|properties|yaml|yml|json|xml|git|del|svn|hg|bzr|CVS|php~|php\.bak|php\.old|php\.orig|php\.save|phps)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+<Directory "uploads">
+    <Files "*.php">
+        Order Allow,Deny
+        Deny from all
+    </Files>
+</Directory>
+
+<IfModule mod_autoindex.c>
+    IndexIgnore *
+</IfModule>
+
+# ============================================================================
+# CUSTOM ERROR PAGES
+# ============================================================================
+
+ErrorDocument 404 "<center><h1>f0uR 0h f0uR - n0t f0uNd</h1></center>"
+
+ErrorDocument 403 "<center><h1>f0uR 0h ThR33 - ARE YOU BEING A NAUGHTY BOY? <i>(s/boy/girl/anything-inbetween/g)>/i></h1></center>"
+
+# ============================================================================
+# COMPREHENSIVE SECURITY REWRITE RULES
+# ============================================================================
+
+RewriteEngine On
+
+# Block directory access (403 for directories)
+RewriteCond %{REQUEST_METHOD} ^GET$ [NC]
+RewriteCond %{REQUEST_URI} ^.*/$
+RewriteCond %{REQUEST_URI} !^/$
+RewriteRule ^.*$ - [F,L]
+
+# XSS Protection - Event handlers and script patterns
+RewriteCond %{QUERY_STRING} (^|&)(on[a-z]+)= [NC,OR]
+RewriteCond %{QUERY_STRING} (<|%3C)([^s]*s)+cript.*(>|%3E) [NC,OR]
+RewriteCond %{QUERY_STRING} (<|%3C)([^i]*i)+frame.*(>|%3E) [NC,OR]
+RewriteCond %{QUERY_STRING} (<|%3C)([^o]*o)+bject.*(>|%3E) [NC,OR]
+RewriteCond %{QUERY_STRING} (<|%3C)([^e]*e)+mbed.*(>|%3E) [NC,OR]
+RewriteCond %{QUERY_STRING} (javascript|vbscript): [NC,OR]
+RewriteCond %{QUERY_STRING} data:([^;]*;)?(base64|charset) [NC,OR]
+RewriteCond %{QUERY_STRING} (onclick|onload|onmouseover|onerror|onsubmit|onchange|onfocus|onblur|onkeydown|onkeyup|onkeypress|onmousedown|onmouseup|onmousemove|onmouseout|onmouseenter|onmouseleave|ondblclick|oncontextmenu|onwheel|ondrag|ondrop|ondragover|ondragenter|ondragleave|ondragstart|ondragend|onresize|onscroll|onselect|onabort|oncanplay|oncanplaythrough|ondurationchange|onemptied|onended|onloadeddata|onloadedmetadata|onloadstart|onpause|onplay|onplaying|onprogress|onratechange|onseeked|onseeking|onstalled|onsuspend|ontimeupdate|onvolumechange|onwaiting|onanimationend|onanimationiteration|onanimationstart|ontransitionend) [NC,OR]
+RewriteCond %{QUERY_STRING} (&lt;|&#60;|&#x3c;).*(&gt;|&#62;|&#x3e;) [NC,OR]
+RewriteCond %{QUERY_STRING} (expression|behaviour|binding|import|@import) [NC,OR]
+RewriteCond %{QUERY_STRING} (<svg|<foreignobject|<use|<image|<img) [NC]
+RewriteRule .* - [F,L]
+
+# LFI Protection - Directory traversal and sensitive files
+RewriteCond %{QUERY_STRING} (\.\./\.\.|\.\.%2F|\.\.%5C|%2E%2E%2F|%2E%2E%5C|%252E%252E%252F|%252E%252E%255C|%c0%ae%c0%ae%c0%af|%c0%ae|%c1%9c|%c0%9v|%c0%qf|%c1%8s|%c1%9c|%c1%pc|%c1%1c|%c0%2f|%c0%af|%c1%9c|%c1%af) [NC,OR]
+RewriteCond %{QUERY_STRING} (/etc/passwd|/etc/shadow|/etc/hosts|/etc/motd|/etc/issue|/var/log|/proc/|/dev/|/sys/|/boot/|boot\.ini|win\.ini|my\.cnf|my\.ini|php\.ini|httpd\.conf|nginx\.conf) [NC,OR]
+RewriteCond %{QUERY_STRING} (%00|%0a|%0d|%09|%20$|\x00) [NC]
+RewriteRule .* - [F,L]
+
+# RFI Protection
+RewriteCond %{QUERY_STRING} ((http|https|ftp|ftps|gopher|dict|file|jar|ldap|ldaps)://|(php|file|data|expect|zip|zlib|glob|phar|ssh2|rar|ogg|compress\.zlib|compress\.bzip2)://) [NC]
+RewriteRule .* - [F,L]
+
+# SQL Injection Protection
+RewriteCond %{QUERY_STRING} (union|select|insert|update|delete|drop|create|alter|exec|execute|sp_|xp_|(or|and)[[:space:]]*[0-9]|--|#|/\*|\*/|;|information_schema|mysql\.|pg_|sqlite_|sys\.|msdb\.|master\.|tempdb\.) [NC,OR]
+RewriteCond %{QUERY_STRING} (concat|group_concat|char|ascii|substring|length|count|sum|avg|min|max|cast|convert|isnull|coalesce|case|when|then|else|end|having|group|order|by|limit|offset|top|distinct|exists|not|in|like|between|is|null|waitfor|delay|benchmark|sleep|pg_sleep|dbms_pipe|utl_inaddr) [NC,OR]
+RewriteCond %{QUERY_STRING} (%27|'|%22|"|%3B|;|%28|%29|\(|\)|%7C|\|) [NC]
+RewriteRule .* - [F,L]
+
+# Command Injection Protection
+RewriteCond %{QUERY_STRING} (;|&&|\|\||`|<|>|\$\(|\${|}|cmd|exec|eval|system|shell_exec|passthru|popen|proc_open|shell|powershell|bash|sh|zsh|csh|tcsh|dash) [NC,OR]
+RewriteCond %{QUERY_STRING} (\$_GET|\$_POST|\$_REQUEST|\$_COOKIE|\$_SESSION|\$_SERVER|\$_ENV|\$_FILES|\$GLOBALS) [NC]
+RewriteRule .* - [F,L]
+
+# PHP Code Injection Protection
+RewriteCond %{QUERY_STRING} (<\?php|<\?=|\?>|php:|base64_decode|base64_encode|gzinflate|gzuncompress|gzdeflate|str_rot13|include|require|include_once|require_once|fopen|fwrite|fread|file_get_contents|file_put_contents|readfile|highlight_file|show_source) [NC]
+RewriteRule .* - [F,L]
+
+# SSRF Protection
+RewriteCond %{QUERY_STRING} (localhost|127\.0\.0\.1|0\.0\.0\.0|::1|0:0:0:0:0:0:0:1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.|169\.254\.|0x7f000001|2130706433|017700000001|0177\.0\.0\.1|169\.254\.169\.254|metadata\.google\.internal|169\.254\.170\.2|fd00:ec2::254) [NC]
+RewriteRule .* - [F,L]
+
+# CSRF Protection Indicators
+RewriteCond %{QUERY_STRING} (csrf|xsrf|token|authenticity_token|_token)=$ [NC]
+RewriteRule .* - [F,L]
+
+# GraphQL Attack Protection
+RewriteCond %{QUERY_STRING} (__schema|__type|__typename|__field|__directive|__enumvalue|__inputvalue|query.*mutation|mutation.*query|fragment.*on|union.*User|interface.*Node|\.\.\.|query.*\{.*\}.*query|\{[^}]*\{[^}]*\{[^}]*\{[^}]*\{[^}]*\{[^}]*\{[^}]*\{[^}]*\{[^}]*\{) [NC]
+RewriteRule .* - [F,L]
+
+# HTTP Parameter Pollution Protection
+RewriteCond %{QUERY_STRING} (([^&=]+)=([^&]*)&.*\1=|&&|;;) [NC]
+RewriteRule .* - [F,L]
+
+# HTTP Request Smuggling/Response Splitting Protection
+RewriteCond %{QUERY_STRING} (%0a|%0d|%0A|%0D|\n|\r|%20%0a|%20%0d|Content-Type:|Content-Length:|Set-Cookie:|Location:|HTTP/1\.|Transfer-Encoding:|chunked|Content-Encoding:) [NC]
+RewriteRule .* - [F,L]
+
+# Buffer Overflow and Format String Protection
+RewriteCond %{QUERY_STRING} (%[0-9]*[diouxXeEfFgGaAcspn%]|A{50,}|1{50,}|x{50,}|\x90{10,}|%90{10,}|%u0090{10,}|%u0090|%90|0x90|\\x90|\\u0090|\xCC|\xC3|eb\+0d|jmp\+0x|call\+0x) [NC]
+RewriteRule .* - [F,L]
+
+# Open Redirect Bypass Protection
+RewriteCond %{QUERY_STRING} (/\/|\/\\|\\\/|\\\\|/\\\\|//[a-zA-Z0-9.-]+|%2F%2F[a-zA-Z0-9.-]+|https?:|ftp:|//|%2F%2F|@|%40|%68%74%74%70|%66%74%70|%6A%61%76%61%73%63%72%69%70%74) [NC]
+RewriteRule .* - [F,L]
+
+# Additional Security Patterns
+RewriteCond %{QUERY_STRING} ((\(|\)|&|\||\*|=|<|>|!|~|\^|;)|<!ENTITY|<!DOCTYPE|SYSTEM|PUBLIC|xmlrpc|soap|wsdl|\{\{|\}\}|<%|%>|\$\{|\}|\[\[|\]\]|<#|#>|%\{|\}|jinja2|django|twig|freemarker|velocity|mustache|handlebars|\$ne|\$gt|\$lt|\$regex|\$where|\$eq|\$in|\$nin|\$or|\$and|\$not|\$nor|\$exists|\$type|\$mod|\$all|\$size|\$elemMatch) [NC,OR]
+RewriteCond %{QUERY_STRING} (xpath|xquery|ancestor|attribute|child|descendant|following|parent|preceding|self|\[@|\]\[|node\(\)|c99|r57|b374k|shell|webshell|backdoor|PHPShell|WSO|FilesMan|Scandir|SafeMode|Bypass|IndoXploit|adminer|phpmyadmin|cpanel) [NC,OR]
+RewriteCond %{QUERY_STRING} (__proto__|constructor|prototype|\[\]|\[constructor\]|\[prototype\]|unserialize|serialize|pickle|marshal|yaml\.load|json\.loads|ObjectInputStream|sleep|usleep|time|timestamp|race|concurrent|parallel) [NC,OR]
+RewriteCond %{QUERY_STRING} (frameset|iframe|embed|object|applet|bgsound|link|meta|style|title|base|form|img|svg|video|audio|Content-Type|multipart|boundary|filename|\.php|\.asp|\.jsp|\.phtml|Cache-Control|Pragma|Expires|ETag|Last-Modified|Vary) [NC]
+RewriteRule .* - [F,L]
+
+# CMS and Application Specific Protection
+RewriteCond %{QUERY_STRING} (wp-config|wp-admin|wp-includes|wp-content|xmlrpc\.php|wp-login\.php|drupal|sites/default|settings\.php|joomla|administrator|configuration\.php|index\.php\?option=|component|view=) [NC,OR]
+RewriteCond %{QUERY_STRING} (/var/log/apache|/var/log/nginx|/var/log/http|access\.log|error\.log|admin=true|is_admin=1|role=admin|privilege=admin|access=admin|level=999|debug=true|test=true) [NC]
+RewriteRule .* - [F,L]
+
+# General Malicious Patterns and DoS Protection
+RewriteCond %{QUERY_STRING} ^.{2000,}$ [NC,OR]
+RewriteCond %{QUERY_STRING} (libwww|wget|curl|lynx|scanner|bot|spider|crawl|nikto|sqlmap|burp|nmap|masscan|zap|w3af) [NC,OR]
+RewriteCond %{QUERY_STRING} [^\x20-\x7E] [NC]
+RewriteRule .* - [F,L]
+
+# Block suspicious patterns from original file
+RewriteCond %{QUERY_STRING} (GLOBALS(=|\[|\%[0-9A-Z]{0,2})|_REQUEST(=|\[|\%[0-9A-Z]{0,2})|proc/self/environ|mosConfig_[a-zA-Z_]{1,21}(=|\%3D)|base64_encode.*(.*)|^.*(\[|\]|\(|\)|<|>|ê|"|;|\?|\*|=$).*) [NC]
+RewriteRule ^(.*)$ - [F,L]
+
+# Block suspicious user agents
+RewriteCond %{HTTP_USER_AGENT} ^$ [OR]
+RewriteCond %{HTTP_USER_AGENT} ^(java|curl|wget) [NC,OR]
+RewriteCond %{HTTP_USER_AGENT} ^.*(libwww-perl|Python-urllib|python-requests|curl|Wget|Ground|harvest|audit|attack|grab|extract).*$ [NC]
+RewriteRule ^(.*)$ - [F,L]
+
+# ============================================================================
+# HIDE FILE EXTENSIONS
+# ============================================================================
+
+RewriteCond %{THE_REQUEST} ^[A-Z]{3,}\s/+([^.\s]+)\.([^.\s]+) [NC]
+RewriteRule ^ /%1? [R=301,L]
+
+# Internally rewrite extensionless URLs to check for files with extensions
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{DOCUMENT_ROOT}/$1.html -f
+RewriteRule ^(.*)$ $1.html [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{DOCUMENT_ROOT}/$1.php -f
+RewriteRule ^(.*)$ $1.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{DOCUMENT_ROOT}/$1.txt -f
+RewriteRule ^(.*)$ $1.txt [L]
+
+# ============================================================================
+# PERFORMANCE OPTIMIZATION
+# ============================================================================
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/jpg "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/webp "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 month"
+    ExpiresByType font/woff "access plus 1 month"
+    ExpiresByType font/woff2 "access plus 1 month"
+</IfModule>
+
+<IfModule mod_mime.c>
+    AddType application/javascript .js
+    AddType text/css .css
+    AddType image/svg+xml .svg
+    AddType application/font-woff .woff
+    AddType application/font-woff2 .woff2
+</IfModule>
+
+# Enable GZIP compression
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE application/xhtml+xml
+    AddOutputFilterByType DEFLATE application/rss+xml
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/x-javascript
+</IfModule>
+
+RewriteEngine On
+# Block access to common webshell filenames and patterns
+RewriteCond %{REQUEST_URI} ^.*(c99|r57|b374k|WSO|wso|shell|webshell|bypass|hack|exploit|backdoor|uploader|filemanager|phpshell|crystal|milw0rm|antichat|phpspy|safe0ver|cgitelnet|unkwn|r00ts|mysql|killer|changeall|sniper|berzelius|dx|moroccan|spyco|connback|indexer|lockerrootshell|mini|small|phpremoteview|dark|eval|php_eval|priv8|privesc|tryag|whoami|supersql|phpinfo|cgialfa|gamma|ida|serverinfo|system|php-findsock|php-backdoor|aZRaiLPhp|cgi-backdoor|uploadr|fileditor|adminer|angel|antichat|aspydrv|backupsql|bigdump|browser|buffered|byshell|c100|cmd|cmdshell|codexplorer|config|crystal|cyberspy|cybershell|database|datcha|dive|edit|editor|eval|execute|exploit|file|fileditor|filemanager|files|fopen|ftp|hack|hacked|hacker|hacking|hardcode|hidden|hijack|info|injection|install|ironshell|killer|loadfile|local|mailer|mass|mini|mysql|obfuscated|pack|passwd|password|php|phpinfo|phpmyadmin|phpshell|phpspy|post|priv8|private|proftp|proxy|pwd|r00t|remote|root|rootshell|safe|scanner|script|secure|server|shell|simple|small|smokeping|sql|support|system|test|tool|tools|trace|tunnel|upload|uploader|virus|vuln|web|webadmin|webroot|whois|www|x3|xploit|xxx).* [NC]
+RewriteRule .* - [F,L]
+
+# Block specific webshell files by exact name
+<Files ~ "^(c99|r57|wso|b374k|shell|webshell|backdoor|uploader|bypass|hack|exploit|crystal|milw0rm|antichat|phpspy|safe0ver|cgitelnet|unkwn|r00ts|mysql|killer|changeall|sniper|berzelius|dx|moroccan|spyco|connback|indexer|mini|small|dark|eval|priv8|privesc|tryag|whoami|supersql|cgialfa|gamma|ida|serverinfo|system|aZRaiLPhp|uploadr|fileditor|adminer|angel|aspydrv|backupsql|bigdump|browser|buffered|byshell|c100|cmd|cmdshell|codexplorer|config|cyberspy|cybershell|database|datcha|dive|edit|editor|execute|file|files|fopen|ftp|hacked|hacker|hacking|hardcode|hidden|hijack|info|injection|install|ironshell|loadfile|local|mailer|mass|obfuscated|pack|passwd|password|phpmyadmin|post|private|proftp|proxy|pwd|r00t|remote|root|rootshell|safe|scanner|script|secure|server|simple|smokeping|sql|support|test|tool|tools|trace|tunnel|upload|virus|vuln|web|webadmin|webroot|whois|www|x3|xploit|xxx)\.(php|phtml|php3|php4|php5|phar|asp|aspx|jsp|cgi|pl)$">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# Block specific well-known webshell names
+<Files "c99.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "r57.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "wso.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "b374k.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "shell.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "webshell.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "backdoor.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "uploader.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "bypass.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "hack.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "exploit.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "crystal.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "milw0rm.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "antichat.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "phpspy.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "safe0ver.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "cgitelnet.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "r00ts.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "mysql.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "killer.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "changeall.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "sniper.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "berzelius.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "dx.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "moroccan.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "spyco.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "connback.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "indexer.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "mini.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "small.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "dark.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "eval.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "priv8.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "privesc.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "tryag.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "whoami.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "supersql.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "cgialfa.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "gamma.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "ida.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "serverinfo.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "system.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "aZRaiLPhp.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "uploadr.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "fileditor.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "adminer.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "angel.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "aspydrv.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "backupsql.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "bigdump.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "browser.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "buffered.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "byshell.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "c100.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "cmd.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "cmdshell.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "codexplorer.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "config.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "cyberspy.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "cybershell.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "database.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "datcha.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "dive.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "edit.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "editor.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "execute.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "file.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "files.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "fopen.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "ftp.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "hacked.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "hacker.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "hacking.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "hardcode.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "hidden.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "hijack.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "info.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "injection.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "install.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "ironshell.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "loadfile.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "local.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "mailer.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "mass.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "obfuscated.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "pack.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "passwd.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "password.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "phpmyadmin.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "post.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "private.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "proftp.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "proxy.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "pwd.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "r00t.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "remote.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "root.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "rootshell.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "safe.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "scanner.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "script.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "secure.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "server.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "simple.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "smokeping.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "sql.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "support.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "test.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "tool.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "tools.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "trace.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "tunnel.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "upload.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "virus.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "vuln.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "web.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "webadmin.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "webroot.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "whois.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "www.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "x3.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "xploit.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "xxx.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# Block suspicious file patterns and extensions
+<FilesMatch "\.(php|phtml|php3|php4|php5|phar)$">
+    RewriteEngine On
+    # Block PHP files in common upload/temp directories
+    RewriteCond %{REQUEST_FILENAME} .*/(temp|tmp|cache|upload|uploads|images|files|media|assets|public|var|log|logs|backup|backups)/.*\.(php|phtml|php3|php4|php5|phar)$ [NC]
+    RewriteRule .* - [F,L]
+</FilesMatch>
+
+# Block execution in upload directories
+<Directory "*/uploads/*">
+    <FilesMatch "\.(php|phtml|php3|php4|php5|phar|asp|aspx|jsp|cgi|pl|py|rb)$">
+        Order Allow,Deny
+        Deny from all
+    </FilesMatch>
+</Directory>
+
+<Directory "*/tmp/*">
+    <FilesMatch "\.(php|phtml|php3|php4|php5|phar|asp|aspx|jsp|cgi|pl|py|rb)$">
+        Order Allow,Deny
+        Deny from all
+    </FilesMatch>
+</Directory>
+
+<Directory "*/temp/*">
+    <FilesMatch "\.(php|phtml|php3|php4|php5|phar|asp|aspx|jsp|cgi|pl|py|rb)$">
+        Order Allow,Deny
+        Deny from all
+    </FilesMatch>
+</Directory>
+
+<Directory "*/cache/*">
+    <FilesMatch "\.(php|phtml|php3|php4|php5|phar|asp|aspx|jsp|cgi|pl|py|rb)$">
+        Order Allow,Deny
+        Deny from all
+    </FilesMatch>
+</Directory>
+
+<Directory "*/images/*">
+    <FilesMatch "\.(php|phtml|php3|php4|php5|phar|asp|aspx|jsp|cgi|pl|py|rb)$">
+        Order Allow,Deny
+        Deny from all
+    </FilesMatch>
+</Directory>
+
+<Directory "*/files/*">
+    <FilesMatch "\.(php|phtml|php3|php4|php5|phar|asp|aspx|jsp|cgi|pl|py|rb)$">
+        Order Allow,Deny
+        Deny from all
+    </FilesMatch>
+</Directory>
+
+# Block suspicious query strings commonly used by webshells
+RewriteCond %{QUERY_STRING} (^|&)(eval|exec|system|shell_exec|passthru|file_get_contents|base64_decode|gzinflate|str_rot13|cmd|command) [NC]
+RewriteRule .* - [F,L]
+
+# Block suspicious POST requests
+RewriteCond %{REQUEST_METHOD} ^POST$ [NC]
+RewriteCond %{HTTP:Content-Type} !^(application/x-www-form-urlencoded|multipart/form-data) [NC]
+RewriteCond %{QUERY_STRING} (script|javascript|vbscript) [NC,OR]
+RewriteCond %{HTTP_USER_AGENT} ^$ [OR]
+RewriteCond %{HTTP_REFERER} (localhost|127\.0\.0\.1) [NC]
+RewriteRule .* - [F,L]
+
+# Log suspicious requests (if logging is enabled)
+RewriteCond %{REQUEST_URI} ^.*(shell|hack|exploit|backdoor) [NC]
+RewriteRule .* - [E=suspicious:1]
+
+# Additional protection against encoded attacks
+RewriteCond %{REQUEST_URI} (%0A|%0D|%27|%3C|%3E|%00) [NC,OR]
+RewriteCond %{REQUEST_URI} (\.\.//|\.\./|/\.\./) [NC,OR]
+RewriteCond %{REQUEST_URI} (;|<|>|'|"|\)|%0A|%0D|%22|%27|%28|%3C|%3E|%00).*(eval|exec|union|select|insert|cast|set|declare|drop|update|md5|benchmark) [NC]
+RewriteRule .* - [F,L]
+
+ ============================================================================
+# IP Whitelisting for Admin Panel
+# ============================================================================
+
+# NOTE: Replace "Addmin Dashboard" with the path to your admin apanel
+# For example, "/admin/admin-login.php
+# Replace the "xx.xx.xx.xxx" after the "allow from" directive with your own IP address,
+
+AuthUserFile /dev/null
+AuthGroupFile /dev/null
+AuthName "Admin dashboard"
+AuthType Basic
+<LIMIT GET>
+order deny,allow
+deny from all
+# whitelist IP Admin
+# REPLACE "xx.xx.xx.xxx" WITH YOUR OWN IP ADDRESS, DUH
+allow from xx.xx.xx.xxx
+</LIMIT>
+
+# Log malicious attempts (uncomment to enable)
+RewriteRule .* - [E=malicious:1]
+CustomLog /var/log/apache2/malicious_attempts.log "%t %h %{User-Agent}i %r %{QUERY_STRING}e" env=malicious
