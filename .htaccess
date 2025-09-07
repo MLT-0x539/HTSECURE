@@ -1,3 +1,14 @@
+######## >>>> HTSECURE: Written by MLT OF Bug0xF4 <<<< ########
+#=============================================================#
+# Usage instructions: Simply save the following file as       #
+# .htaccess and upload it to your webroot dir. Change certain #
+# values within the file to match the correct values, for     #
+# example change the IP that is whitelisted for admin access  #
+# to match your own IP address. Reminder that this tool only  #
+# works with Apache and was developed specifically with LAMP  #
+# Stack in mind. -- MLT                                       #
+#=============================================================#
+
 # ============================================================================
 # SERVER SECURITY AND HEADERS
 # ============================================================================
@@ -243,6 +254,11 @@ RewriteRule ^(.*)$ $1.txt [L]
     AddOutputFilterByType DEFLATE application/javascript
     AddOutputFilterByType DEFLATE application/x-javascript
 </IfModule>
+
+
+# ============================================================================
+# BLOCKING OF COMMONLY-KNOWN WEBSHELLS
+# ============================================================================
 
 RewriteEngine On
 # Block access to common webshell filenames and patterns
