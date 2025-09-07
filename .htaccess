@@ -9,9 +9,9 @@
 # Stack in mind. -- MLT                                       #
 #=============================================================#
 
-# ============================================================================
-# SERVER SECURITY AND HEADERS
-# ============================================================================
+# ===========================================================================#
+# SERVER SECURITY AND HEADERS                                                #
+# ===========================================================================#
 
 ServerSignature Off
 ServerTokens Prod
@@ -54,9 +54,9 @@ Options -Indexes
 </FilesMatch>
 
 
-# ============================================================================
-# FILE ACCESS RESTRICTIONS
-# ============================================================================
+# ===========================================================================#
+# FILE ACCESS RESTRICTIONS                                                   #
+# ===========================================================================#
 
 <Files .htaccess>
     Order allow,deny
@@ -79,25 +79,32 @@ Options -Indexes
     IndexIgnore *
 </IfModule>
 
-# ============================================================================
-# CUSTOM ERROR PAGES
-# ============================================================================
+# ===========================================================================#
+# CUSTOM ERROR PAGES                                                         #
+# ===========================================================================#
+
+# EDIT THE HTML CODE HERE TO CREATE YOUR OWN ERROR PAGES
 
 ErrorDocument 404 "<center><h1>f0uR 0h f0uR - n0t f0uNd</h1></center>"
-
 ErrorDocument 403 "<center><h1>f0uR 0h ThR33 - ARE YOU BEING A NAUGHTY BOY? <i>(s/boy/girl/anything-inbetween/g)>/i></h1></center>"
 
-# ============================================================================
-# COMPREHENSIVE SECURITY REWRITE RULES
-# ============================================================================
+# ===========================================================================#
+# BLOCK DIRECTORY ACCESS ALTERNATIVE METHOD                                  #
+# ===========================================================================#
+
+# This is an alternative method to disable access to open directories
+# hopefully this should have already been immplemented via "Options -Indexes" at the start of the file
+# But this is a backup method in case the first method didn't work for some reason
 
 RewriteEngine On
-
-# Block directory access (403 for directories)
 RewriteCond %{REQUEST_METHOD} ^GET$ [NC]
 RewriteCond %{REQUEST_URI} ^.*/$
 RewriteCond %{REQUEST_URI} !^/$
 RewriteRule ^.*$ - [F,L]
+
+# ===========================================================================#
+# PROTECTIONS AGAINST MANY DIFFERENT ATTACK VECTORS                          #
+# ===========================================================================#
 
 # XSS Protection - Event handlers and script patterns
 RewriteCond %{QUERY_STRING} (^|&)(on[a-z]+)= [NC,OR]
@@ -194,9 +201,9 @@ RewriteCond %{HTTP_USER_AGENT} ^(java|curl|wget) [NC,OR]
 RewriteCond %{HTTP_USER_AGENT} ^.*(libwww-perl|Python-urllib|python-requests|curl|Wget|Ground|harvest|audit|attack|grab|extract).*$ [NC]
 RewriteRule ^(.*)$ - [F,L]
 
-# ============================================================================
-# HIDE FILE EXTENSIONS
-# ============================================================================
+# ===========================================================================#
+# HIDE FILE EXTENSIONS                                                       #
+# ===========================================================================#
 
 RewriteCond %{THE_REQUEST} ^[A-Z]{3,}\s/+([^.\s]+)\.([^.\s]+) [NC]
 RewriteRule ^ /%1? [R=301,L]
@@ -217,9 +224,9 @@ RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{DOCUMENT_ROOT}/$1.txt -f
 RewriteRule ^(.*)$ $1.txt [L]
 
-# ============================================================================
-# PERFORMANCE OPTIMIZATION
-# ============================================================================
+# ===========================================================================#
+# PERFORMANCE OPTIMIZATION                                                   #
+# ===========================================================================#
 <IfModule mod_expires.c>
     ExpiresActive On
     ExpiresByType text/css "access plus 1 month"
@@ -256,9 +263,9 @@ RewriteRule ^(.*)$ $1.txt [L]
 </IfModule>
 
 
-# ============================================================================
-# BLOCKING OF COMMONLY-KNOWN WEBSHELLS
-# ============================================================================
+# ===========================================================================#
+# BLOCKING OF COMMONLY-KNOWN WEBSHELLS                                       #
+# ===========================================================================#
 
 RewriteEngine On
 # Block access to common webshell filenames and patterns
@@ -938,6 +945,10 @@ RewriteRule .* - [F,L]
     </FilesMatch>
 </Directory>
 
+#============================================================================#
+# BLOCKING OF MORE SUSPICIOUS ACTIVITY                                       #
+#============================================================================#
+
 # Block suspicious query strings commonly used by webshells
 RewriteCond %{QUERY_STRING} (^|&)(eval|exec|system|shell_exec|passthru|file_get_contents|base64_decode|gzinflate|str_rot13|cmd|command) [NC]
 RewriteRule .* - [F,L]
@@ -960,9 +971,9 @@ RewriteCond %{REQUEST_URI} (\.\.//|\.\./|/\.\./) [NC,OR]
 RewriteCond %{REQUEST_URI} (;|<|>|'|"|\)|%0A|%0D|%22|%27|%28|%3C|%3E|%00).*(eval|exec|union|select|insert|cast|set|declare|drop|update|md5|benchmark) [NC]
 RewriteRule .* - [F,L]
 
- ============================================================================
-# IP Whitelisting for Admin Panel
-# ============================================================================
+#============================================================================#
+# IP WHITELISTING FOR ADMIN PANEL                                            #
+#============================================================================#
 
 # NOTE: Replace "Addmin Dashboard" with the path to your admin apanel
 # For example, "/admin/admin-login.php
